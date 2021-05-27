@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   KeyboardAvoidingView,
   StyleSheet,
@@ -8,28 +8,98 @@ import {
   TouchableOpacity,
   Keyboard,
   ScrollView,
+  Alert,
 } from 'react-native';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Task from './components/Task';
 
-// TODO show different window (finished tasks)
-// TODO randomize one thing
 export default function App() {
   const [task, setTask] = useState();
   const [taskItems, setTaskItems] = useState([]);
   const [doneItems, setDoneItems] = useState([]);
 
-  const handleAddTask = () => {
+  useEffect(() => {
+    console.log('used effect');
+    async function getTasks() {
+      try {
+        const tasksRetrieved = await AsyncStorage.getItem('taskItems');
+        if (tasksRetrieved !== null) {
+          setTaskItems(JSON.parse(tasksRetrieved));
+        }
+        // Alert.alert("Storage", "Loaded tasks");
+      } catch (error) {
+        console.log(error);
+        // Alert.alert("Storage", "Error Loading task");
+      }
+    }
+
+    async function getDoneItems() {
+      try {
+        const doneItemsRetrieved = await AsyncStorage.getItem('doneItems');
+        if (doneItemsRetrieved !== null) {
+          setDoneItems(JSON.parse(doneItemsRetrieved));
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+    getTasks();
+    getDoneItems();
+  }, []);
+
+  const handleAddTask = async () => {
     Keyboard.dismiss();
-    setTaskItems([...taskItems, task]);
+    setTaskItems([task, ...taskItems]);
     setTask(null);
+
+    try {
+      const savedTasks = await AsyncStorage.getItem('taskItems');
+      if (savedTasks !== null) {
+        const parsedSavedTasks = JSON.parse(savedTasks);
+        await AsyncStorage.setItem(
+          'taskItems',
+          JSON.stringify([task, ...parsedSavedTasks])
+        );
+      } else {
+        await AsyncStorage.setItem('taskItems', JSON.stringify([task]));
+      }
+
+      // Alert.alert("Storage", "Saved task");
+    } catch (error) {
+      console.log(error);
+      // Alert.alert("Storage", "Error Saving task");
+    }
   };
 
-  const completeTask = (index) => {
+  // TODO save doneItems
+  const completeTask = async (index) => {
     let doneItem = taskItems[index];
     setDoneItems([...doneItems, doneItem]);
+
+    try {
+      let savedDoneItems = await AsyncStorage.getItem('doneItems');
+      if (savedDoneItems !== null) {
+        let parsedDoneItems = JSON.parse(savedDoneItems);
+        await AsyncStorage.setItem(
+          'doneItems',
+          JSON.stringify([doneItem, ...parsedDoneItems])
+        );
+      } else {
+        await AsyncStorage.setItem('doneItems', JSON.stringify([doneItem]));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+
     let itemsCopy = [...taskItems];
     itemsCopy.splice(index, 1);
     setTaskItems(itemsCopy);
+    try {
+      await AsyncStorage.setItem('taskItems', JSON.stringify(itemsCopy));
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   return (
